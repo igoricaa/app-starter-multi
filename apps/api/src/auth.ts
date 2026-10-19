@@ -9,6 +9,7 @@ import { CurrentUser, DisplayName, Unauthenticated } from "@app/contracts";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { Pool } from "pg";
 import { Resend } from "resend";
+import { z } from "zod";
 import { authConfig, databaseUrl } from "./config";
 import * as schema from "./schema";
 
@@ -28,9 +29,9 @@ const limitedPaths: Record<string, keyof typeof limits> = {
   "/email-otp/send-verification-otp": "send",
   "/sign-in/email-otp": "verify",
 };
-// Only a sign-in code for a well-formed address can create an account, so only those count toward
-// the cap on new addresses.
-const wellFormedEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Only a sign-in code for an address Better Auth accepts can create an account, so only those
+// count toward the cap on new addresses. Its email-otp plugin checks with this same zod schema.
+const acceptedEmail = z.email();
 
 function makeAuth(db: NodePgDatabase, config: AuthConfig) {
   const usesFixedCode = (email: string) =>
@@ -65,7 +66,9 @@ function makeAuth(db: NodePgDatabase, config: AuthConfig) {
         const email: unknown = ctx.body?.email;
         if (!kind || typeof email !== "string" || usesFixedCode(email)) return;
         const mayCreate =
-          kind === "send" && ctx.body?.type === "sign-in" && wellFormedEmail.test(email);
+          kind === "send" &&
+          ctx.body?.type === "sign-in" &&
+          acceptedEmail.safeParse(email.toLowerCase()).success;
         if (!(await allowAttempt(db, kind, email.toLowerCase(), mayCreate))) {
           throw new APIError("TOO_MANY_REQUESTS", {
             message: "Too many attempts. Wait a few minutes and try again.",
@@ -95,6 +98,8 @@ function makeAuth(db: NodePgDatabase, config: AuthConfig) {
       // `Authorization: Bearer <token>`.
       bearer(),
       emailOTP({
+        // Previews copy a database branch; a stored code must not be usable from a copy.
+        storeOTP: "hashed",
         // Returning undefined falls back to a random code; expiry and attempt limits apply either way.
         generateOTP: ({ email }) =>
           usesFixedCode(email) ? Option.getOrUndefined(config.testOtpCode) : undefined,
