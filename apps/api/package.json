@@ -19,7 +19,8 @@
     "effect": "4.0.5",
     "nitro": "3.0.260903-beta",
     "pg": "^8.23.1",
-    "resend": "^6.34.1"
+    "resend": "^6.34.1",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.5",

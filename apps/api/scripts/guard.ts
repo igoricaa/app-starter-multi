@@ -1,8 +1,9 @@
 // Run first by scripts/vercel-build.sh, before anything touches a database. A preview must never
-// migrate or use production's database (PRODUCTION_DATABASE_HOST, not a secret, set for Preview).
+// migrate or use production's database: its URLs must pass the strict read in database-host.ts and
+// name another Neon endpoint than PRODUCTION_DATABASE_HOST (not a secret, set for Preview).
 // A new Vercel project's first Git deployment goes to production whatever its branch, so
 // production builds only from main.
-import { databaseHosts, normalizeHost } from "./database-host";
+import { neonEndpoint, readDatabaseUrl } from "./database-host";
 
 function refuse(reason: string): never {
   console.error(`Refusing to build: ${reason}`);
@@ -19,13 +20,18 @@ switch (env.VERCEL_ENV) {
     break;
   case "preview": {
     if (env.RESEND_API_KEY) refuse("RESEND_API_KEY is set; previews sign in seeded accounts only.");
-    if (!env.PRODUCTION_DATABASE_HOST) refuse("PRODUCTION_DATABASE_HOST is not set.");
-    const production = normalizeHost(env.PRODUCTION_DATABASE_HOST);
+    const production = neonEndpoint(env.PRODUCTION_DATABASE_HOST ?? "");
+    if (!production) refuse("PRODUCTION_DATABASE_HOST is not a Neon host.");
     for (const name of ["DATABASE_URL", "DATABASE_URL_UNPOOLED"]) {
       const url = env[name];
       if (!url) refuse(`${name} is not set.`);
-      if (databaseHosts(url).includes(production))
-        refuse(`this preview's ${name} is production's.`);
+      let endpoint: string | null;
+      try {
+        ({ endpoint } = readDatabaseUrl(name, url));
+      } catch (error) {
+        refuse((error as Error).message);
+      }
+      if (endpoint === production) refuse(`this preview's ${name} is production's.`);
     }
     break;
   }

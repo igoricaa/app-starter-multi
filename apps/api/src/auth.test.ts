@@ -65,10 +65,12 @@ describe("code limits", () => {
     Effect.gen(function* () {
       const victim = "victim@example.test";
       for (let i = 0; i < 3; i++) assert.strictEqual(yield* sendCode(victim), 200);
-      const code = (yield* storedCode(victim))!.split(":")[0]!;
+      // The same as a sent code, but known here: stored codes are hashed.
+      const code = yield* issueCode(victim);
       for (let i = 0; i < 3; i++) assert.strictEqual(yield* guess(victim, "000000"), 400);
       const spent = yield* storedCode(victim);
-      assert.strictEqual(spent, `${code}:3`);
+      assert.match(spent!, /:3$/);
+      assert.notInclude(spent!, code);
 
       assert.strictEqual(yield* sendCode(victim.toUpperCase()), 429);
       assert.strictEqual(yield* storedCode(victim), spent);
@@ -106,23 +108,26 @@ describe("code limits", () => {
     }).pipe(Effect.provide(testApp())),
   );
 
-  it.effect("only sign-in codes for well-formed addresses count toward the global cap", () =>
-    Effect.gen(function* () {
-      const db = yield* Db;
-      const counted = db
-        .select({ n: count() })
-        .from(otpAttempt)
-        .where(eq(otpAttempt.newAddress, true))
-        .pipe(
-          Effect.orDie,
-          Effect.map(([row]) => row!.n),
-        );
-      yield* sendCode("not-an-address");
-      yield* sendCode("verify@example.test", "email-verification");
-      assert.strictEqual(yield* counted, 0);
-      yield* sendCode("new@example.test");
-      assert.strictEqual(yield* counted, 1);
-    }).pipe(Effect.provide(testApp())),
+  it.effect(
+    "only sign-in codes for addresses Better Auth accepts count toward the global cap",
+    () =>
+      Effect.gen(function* () {
+        const db = yield* Db;
+        const counted = db
+          .select({ n: count() })
+          .from(otpAttempt)
+          .where(eq(otpAttempt.newAddress, true))
+          .pipe(
+            Effect.orDie,
+            Effect.map(([row]) => row!.n),
+          );
+        yield* sendCode("not-an-address");
+        yield* sendCode("two..dots@example.test");
+        yield* sendCode("verify@example.test", "email-verification");
+        assert.strictEqual(yield* counted, 0);
+        yield* sendCode("new@example.test");
+        assert.strictEqual(yield* counted, 1);
+      }).pipe(Effect.provide(testApp())),
   );
 });
 

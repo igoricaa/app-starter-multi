@@ -4,11 +4,14 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
-import { isPooled } from "./database-host";
+import { readDatabaseUrl } from "./database-host";
 
 const url = process.env.DATABASE_URL_UNPOOLED;
 if (!url) throw new Error("Set DATABASE_URL_UNPOOLED, the direct database URL.");
-if (isPooled(url)) throw new Error("DATABASE_URL_UNPOOLED is a pooled (-pooler) URL.");
+// A Neon host or localhost (dev and tests), never a hostless URL that PGHOST would complete.
+if (readDatabaseUrl("DATABASE_URL_UNPOOLED", url, { allowLocal: true }).pooled) {
+  throw new Error("DATABASE_URL_UNPOOLED is a pooled (-pooler) URL.");
+}
 
 const client = new Client({ connectionString: url });
 await client.connect();
