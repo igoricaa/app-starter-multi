@@ -114,7 +114,7 @@ Read `docs/internals/api.md` for the contracts, the proxy, auth and pairing.
 - **Deploys:** each push builds both projects.
   - The API's build (`apps/api/scripts/vercel-build.sh`) refuses a production build from any branch but `main`, `TEST_OTP_CODE` in production, `RESEND_API_KEY` on a preview, and a preview whose database is production's. It migrates under an advisory lock, so concurrent deploys apply migrations one at a time; previews are then seeded; then it builds.
   - The web's build refuses production from any branch but `main`.
-  - An API preview gets its branch's own Neon database branch. A web preview talks to the API preview of the same branch.
+  - An API preview gets its branch's own Neon database branch, copied from `dev` (the Neon project's default branch, so previews hold no production data) and deleted when its PR closes (`.github/workflows/cleanup.yml`). Production uses `main`. A web preview talks to the API preview of the same branch.
 
 ## Where code lives
 
