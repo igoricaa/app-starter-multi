@@ -1,0 +1,30 @@
+{
+  "name": "@app/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nitro dev --port 3001",
+    "build": "nitro build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun scripts/migrate.ts",
+    "seed": "bun scripts/seed.ts"
+  },
+  "dependencies": {
+    "@app/contracts": "workspace:*",
+    "@effect/sql-pg": "4.0.5",
+    "better-auth": "1.7.11",
+    "drizzle-orm": "1.0.0-rc.5-5935859",
+    "effect": "4.0.5",
+    "nitro": "3.0.260903-beta",
+    "pg": "^8.23.1",
+    "resend": "^6.34.1"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "1.0.0-rc.5-5935859",
+    "vitest": "^5.0.5"
+  }
+}

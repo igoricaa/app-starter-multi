@@ -1,0 +1,49 @@
+name: E2E
+
+# Vercel reports each deployment here, including a branch pushed before its PR opens. Both
+# projects report; the web's environment is "Preview – <name>-web".
+on: deployment_status
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      startsWith(github.event.deployment.environment, 'Preview') &&
+      endsWith(github.event.deployment.environment, '-web')
+    # Vercel's deployment ref is the commit SHA: a redeploy of the same commit supersedes this run.
+    concurrency:
+      group: e2e-${{ github.event.deployment.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ github.event.deployment_status.environment_url }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      # The web preview reaches its paired API preview through /api; both build from each push, so
+      # wait until that API reports this commit.
+      - name: Wait for the paired API preview
+        env:
+          SHA: ${{ github.event.deployment.sha }}
+        run: |
+          for _ in $(seq 60); do
+            sha=$(curl -sf -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$BASE_URL/api/health" | jq -r .sha) || sha=
+            [ "$sha" = "$SHA" ] && exit 0
+            sleep 5
+          done
+          echo "The paired API never reported $SHA (last answer: '${sha}')." >&2
+          exit 1
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.deployment.sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile && bunx playwright install --with-deps chromium
+      - run: bunx playwright test tests/e2e/sign-in.spec.ts
+        env:
+          CI: true
+          TEST_OTP_CODE: ${{ secrets.TEST_OTP_CODE }}

@@ -1,0 +1,2 @@
+apps/api/.env.local
+apps/web/.env.local
