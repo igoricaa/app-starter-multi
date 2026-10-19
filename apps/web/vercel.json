@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bash scripts/vercel-build.sh",
   "regions": ["fra1"],
-  "relatedProjects": ["<the API project's id>"]
+  "relatedProjects": ["prj_OntDYzYfKl7RQrj7Ok0iLQBzeUfY"]
 }
