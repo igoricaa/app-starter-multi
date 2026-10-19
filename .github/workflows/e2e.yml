@@ -1,7 +1,8 @@
 name: E2E
 
-# Vercel reports each deployment here, including a branch pushed before its PR opens. Both
-# projects report; the web's environment is "Preview – <name>-web".
+# Vercel reports each web deployment here, including a branch pushed before its PR opens. Its
+# environment is "Preview – <name>-web". The API project's GitHub deployments are off: its
+# events would add a skipped e2e run on the same commit, which can hide this one's result.
 on: deployment_status
 
 permissions:

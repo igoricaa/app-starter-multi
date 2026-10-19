@@ -11,6 +11,9 @@ async function forward({ request }: { request: Request }) {
   const url = new URL(request.url);
   const headers = new Headers(request.headers);
   headers.delete("host");
+  // On a protected preview, a client asking Vercel to set this deployment's bypass cookie would
+  // get the API preview's cookie and a redirect to an API path instead.
+  headers.delete("x-vercel-set-bypass-cookie");
   for (const [name, value] of Object.entries(upstreamHeaders(request.headers))) {
     headers.set(name, value);
   }
