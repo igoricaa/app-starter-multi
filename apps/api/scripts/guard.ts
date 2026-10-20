@@ -1,9 +1,9 @@
 // Run first by scripts/vercel-build.sh, before anything touches a database. A preview must never
-// migrate or use production's database: its URLs must pass the strict read in database-host.ts and
-// name another Neon endpoint than PRODUCTION_DATABASE_HOST (not a secret, set for Preview).
+// migrate or use production's database: its URLs must pass the strict read in database-host.ts, on
+// PRODUCTION_DATABASE_HOST's suffix (not a secret, set for Preview), with another endpoint id.
 // A new Vercel project's first Git deployment goes to production whatever its branch, so
 // production builds only from main.
-import { neonEndpoint, readDatabaseUrl } from "./database-host";
+import { neonHostParts, readDatabaseUrl } from "./database-host";
 
 function refuse(reason: string): never {
   console.error(`Refusing to build: ${reason}`);
@@ -20,18 +20,21 @@ switch (env.VERCEL_ENV) {
     break;
   case "preview": {
     if (env.RESEND_API_KEY) refuse("RESEND_API_KEY is set; previews sign in seeded accounts only.");
-    const production = neonEndpoint(env.PRODUCTION_DATABASE_HOST ?? "");
+    const production = neonHostParts(env.PRODUCTION_DATABASE_HOST ?? "");
     if (!production) refuse("PRODUCTION_DATABASE_HOST is not a Neon host.");
     for (const name of ["DATABASE_URL", "DATABASE_URL_UNPOOLED"]) {
       const url = env[name];
       if (!url) refuse(`${name} is not set.`);
-      let endpoint: string | null;
+      let host: ReturnType<typeof readDatabaseUrl>;
       try {
-        ({ endpoint } = readDatabaseUrl(name, url));
+        host = readDatabaseUrl(name, url);
       } catch (error) {
         refuse((error as Error).message);
       }
-      if (endpoint === production) refuse(`this preview's ${name} is production's.`);
+      // Exactly <endpoint id>[-pooler].<production's suffix>: Neon's own host for another endpoint.
+      if (host?.suffix !== production.suffix)
+        refuse(`${name}'s host isn't on production's Neon suffix.`);
+      if (host.endpoint === production.endpoint) refuse(`this preview's ${name} is production's.`);
     }
     break;
   }
