@@ -20,7 +20,7 @@ Treat this file as good defaults, not hard rules. If a rule fights the task in f
 3. **Breaking clients you don't deploy.** Users keep the old web app open after a deploy, and mobile apps stay on old versions for months. So a contract in `packages/contracts` changes only additively: new endpoints, new optional fields. Removals and renames need a new endpoint, and the old one stays until no client calls it. A new literal, union member or tag in a response breaks old mobile clients' decode; add a field or a new endpoint instead.
 4. **Narrowing data in one step.** It takes three PRs: widen the schema, backfill, then narrow, and only after the backfill has completed. Igor takes a backup first.
 5. **Editing an applied migration.** Change `apps/api/src/schema.ts`, run `bun run --cwd apps/api db:generate`, and commit the new folder in `apps/api/drizzle/`.
-6. **Migrating dev from a worktree.** Worktrees share the Neon `dev` branch through `apps/api/.env.local`. Builders test with `bun run --filter @app/api test`, which starts its own PostgreSQL; only `/build`'s integration check runs `bun run --cwd apps/api db:migrate` against dev.
+6. **Migrating dev from a worktree.** Worktrees share the Neon `dev` branch through `apps/api/.env.local`. Builders test with `bun run --filter @app/api test`, which starts its own PostgreSQL; only Igor runs `bun run --cwd apps/api db:migrate` against dev, for his local dev server.
 
 ## Hit every surface
 
@@ -40,13 +40,13 @@ The most common defect is a change that works on the path you tested and is miss
 
 - `bun run setup` installs dependencies and checks out Effect's source in `.repos/effect`. New worktrees run it from `t3.json`, and get both `.env.local` files and `.repos` linked from the main checkout.
 - `bun run dev` runs the API on port 3001 (`nitro dev`) and the web app on 3000 (Vite), against the Neon `dev` branch in `apps/api/.env.local`. A busy port fails instead of moving.
-- Builders never run dev servers. Only `/build`'s integration check runs `bun run dev`, in the batch's worktree.
+- Only Igor runs `bun run dev`, locally. Agents never run dev servers: `/build`'s browser walk runs on the PR's preview.
 - Stop what you started, by the PIDs you captured: the API's and the web's servers, not only `bun run dev`, which leaves them running when it is killed. Never kill by name or pattern.
 
 ## Test data
 
 - `bun run --cwd apps/api seed` creates the seeded accounts (see `apps/api/src/auth.ts`). It refuses wherever `TEST_OTP_CODE` is unset, which includes production.
-- Sign in as a seeded account with the code in `TEST_OTP_CODE`. It works only in dev and previews, and only for seeded addresses.
+- Sign in as a seeded account with the code in `TEST_OTP_CODE`. It works only in dev and previews, and only for seeded addresses. Previews use dev's code: setup copied it to the API project's preview environment and to the e2e's GitHub secret.
 - Use the code without printing it: `TEST_OTP_CODE="$(grep ^TEST_OTP_CODE= apps/api/.env.local | cut -d= -f2-)" bunx playwright test`.
 - Each branch's API previews share one Neon database branch, migrated and seeded on every deploy. Previews send no mail.
 
@@ -57,7 +57,7 @@ The most common defect is a change that works on the path you tested and is miss
 - **Backend changes** ship with focused tests at the service boundary: who may call it, whose data it touches, and the error codes. Copy `apps/api/src/AccountService.test.ts`. A new endpoint or auth path also gets a case in `apps/api/src/http.test.ts`.
 - **Test meaningful behaviour.** No static-render tests, no tests that mirror the implementation, no snapshots.
 - **End-to-end:** one Playwright test (sign-in, through the web app). Add one only for a flow whose breaking would really hurt.
-- **No browsers** unless `/build`'s integration check or Igor asks.
+- **Browsers:** the browser walk runs on the preview (see `/build`); otherwise only when Igor asks.
 
 ## Pull requests
 
@@ -136,6 +136,7 @@ Igor starts every session, and each one ends by naming the next command.
   7. `/to-tickets`.
   8. Before `/build`, commit `GLOSSARY.md`, ADRs and `docs/decisions.md` straight to `main` (docs only), so builders' worktrees see them.
 - **Build:** `/build`, a fresh session per batch. Merging deploys production.
+- **A small, clear feature** (one piece, no new data model, not high-stakes) skips Shape: `/build <what>`. The coordinator writes one Linear ticket (acceptance criteria, test seam) and builds it. Everything else goes through Shape and both its approval rounds (the outline, then the spec and tickets).
 - **Tiny tweaks** (copy, spacing, a label) go straight to `main`, with no PR and no review.
 
 ## Routing
