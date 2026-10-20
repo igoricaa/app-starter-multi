@@ -65,7 +65,7 @@ describe("code limits", () => {
     Effect.gen(function* () {
       const victim = "victim@example.test";
       for (let i = 0; i < 3; i++) assert.strictEqual(yield* sendCode(victim), 200);
-      // The same as a sent code, but known here: stored codes are hashed.
+      // The same as a sent code, but known here: stored codes are encrypted.
       const code = yield* issueCode(victim);
       for (let i = 0; i < 3; i++) assert.strictEqual(yield* guess(victim, "000000"), 400);
       const spent = yield* storedCode(victim);

@@ -98,8 +98,9 @@ function makeAuth(db: NodePgDatabase, config: AuthConfig) {
       // `Authorization: Bearer <token>`.
       bearer(),
       emailOTP({
-        // Previews copy a database branch; a stored code must not be usable from a copy.
-        storeOTP: "hashed",
+        // Previews copy a database branch, and a hash of a 6-digit code reverses instantly; this is
+        // keyed by BETTER_AUTH_SECRET, which differs per environment.
+        storeOTP: "encrypted",
         // Returning undefined falls back to a random code; expiry and attempt limits apply either way.
         generateOTP: ({ email }) =>
           usesFixedCode(email) ? Option.getOrUndefined(config.testOtpCode) : undefined,

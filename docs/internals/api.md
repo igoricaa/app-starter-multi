@@ -29,3 +29,7 @@ Both send `x-client-ip` with `API_PROXY_SECRET`, a secret the two projects share
 - API previews stay behind Vercel's Deployment Protection: they hold seeded accounts with a known code. The web's server (the proxy and SSR) sends the API project's protection bypass, `API_BYPASS_SECRET` in the web's Preview env; a mobile build against a preview sends it too. Production's API is public, for mobile apps.
 - CI's e2e runs on the web preview's `deployment_status`, after `<web preview>/api/health` (through the proxy, so through the pairing) reports the same commit.
 - Only the web project creates GitHub deployments. The API's would start a second, skipped `e2e` run for the same commit, and a PR shows the latest run's result. Vercel names the environment `Preview – <project>`; the workflow also checks that it ends in `-web`, so the projects are named `<app>-web` and `<app>-api`.
+
+## The preview database guard
+
+`apps/api/scripts/guard.ts` refuses a preview build unless both database URLs are plain Neon URLs, over TLS, for another endpoint on production's host suffix (`database-host.ts`). It guards against misconfiguration, not against someone who can already set Vercel env vars.
