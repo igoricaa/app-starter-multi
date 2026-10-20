@@ -4,6 +4,7 @@
 // `project=…;`), and libpq and node-postgres read a `host` parameter, PGHOSTADDR and PGOPTIONS.
 // So a URL passes only when its hostname alone decides where it connects, over TLS.
 // This guards against misconfiguration, not against someone who can already set Vercel env vars.
+import { parse } from "pg-connection-string";
 
 // Neon's hosts: ep-<id>[-pooler].<suffix>, the suffix being the region's labels and neon.tech.
 const neonHost = /^(ep-[a-z0-9-]+?)(-pooler)?\.((?:[a-z0-9-]+\.)+neon\.tech)$/;
@@ -33,18 +34,20 @@ export function readDatabaseUrl(
   }
 
   let parsed: URL;
-  let password: string;
+  let decoded: string;
   try {
     parsed = new URL(url);
-    password = decodeURIComponent(parsed.password);
+    decoded = decodeURIComponent(url);
+    // node-postgres parses the URL itself; both readings must name the same host.
+    if (parse(url).host !== parsed.hostname) throw new Error();
   } catch {
     throw new Error(`${name} isn't a well-formed URL.`);
   }
   if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
     throw new Error(`${name} isn't a postgres:// URL.`);
   }
-  if (/endpoint=|project=/i.test(`${decodeURIComponent(parsed.username)}:${password}`)) {
-    throw new Error(`${name}'s credentials name a Neon endpoint or project.`);
+  if (/endpoint=|project=/i.test(decoded)) {
+    throw new Error(`${name} names a Neon endpoint or project.`);
   }
   for (const [parameter, value] of parsed.searchParams) {
     const allowed =
@@ -65,7 +68,7 @@ export function readDatabaseUrl(
   if (!neon || parsed.port) {
     throw new Error(`${name}'s host isn't a Neon host${allowLocal ? " or localhost" : ""}.`);
   }
-  if (!password) throw new Error(`${name} has no password.`);
+  if (!parsed.password) throw new Error(`${name} has no password.`);
   if (!tlsModes.includes(parsed.searchParams.get("sslmode") ?? "")) {
     throw new Error(`${name} must set sslmode to require or verify-full.`);
   }
