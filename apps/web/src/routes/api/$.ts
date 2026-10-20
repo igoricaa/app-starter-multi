@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createCsrfMiddleware } from "@tanstack/react-start";
-import { apiOrigin, upstreamHeaders } from "~/server/upstream";
+import { proxyTarget } from "~/server/upstream";
 
 // The browser's way to the API: /api/* here is the API's /*, on this origin so the session cookie
 // stays first-party. Cross-site browser requests are refused; a request with no browser headers at
@@ -8,32 +8,23 @@ import { apiOrigin, upstreamHeaders } from "~/server/upstream";
 const csrf = createCsrfMiddleware({ allowRequestsWithoutOriginCheck: true });
 
 async function forward({ request }: { request: Request }) {
-  const url = new URL(request.url);
-  const headers = new Headers(request.headers);
-  headers.delete("host");
-  // On a protected preview, a client asking Vercel to set this deployment's bypass cookie would
-  // get the API preview's cookie and a redirect to an API path instead.
-  headers.delete("x-vercel-set-bypass-cookie");
-  for (const [name, value] of Object.entries(upstreamHeaders(request.headers))) {
-    headers.set(name, value);
-  }
+  const target = proxyTarget(request);
+  if (!target) return new Response(null, { status: 404 });
   // Node's fetch streams a request body only with `duplex`, which the DOM types lack.
   const init: RequestInit & { duplex: "half" } = {
     method: request.method,
-    headers,
+    headers: target.headers,
     body: request.body,
     redirect: "manual",
     duplex: "half",
   };
-  const response = await fetch(
-    `${apiOrigin()}${url.pathname.slice("/api".length)}${url.search}`,
-    init,
-  );
+  const response = await fetch(target.url, init);
   const returned = new Headers(response.headers);
   // fetch has already decoded the body.
   returned.delete("content-encoding");
   returned.delete("content-length");
-  // The bearer plugin's copy of the session token is for mobile; the browser keeps its HttpOnly cookie.
+  // The signed session token, the only one the API takes as a bearer, is for mobile apps; browser
+  // scripts never see it.
   returned.delete("set-auth-token");
   return new Response(response.body, { status: response.status, headers: returned });
 }

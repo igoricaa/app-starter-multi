@@ -30,3 +30,27 @@ function previewBypass(): Record<string, string> {
   if (!bypass) throw new Error("Set API_BYPASS_SECRET, the API project's protection bypass.");
   return { "x-vercel-protection-bypass": bypass };
 }
+
+// Vercel's Deployment Protection controls. Only this server's bypass reaches an API preview: a
+// client's would get the API preview's bypass cookie and a redirect to an API path.
+const protectionControls = ["x-vercel-protection-bypass", "x-vercel-set-bypass-cookie"];
+
+// The API's URL and headers for a browser's /api/* request, or undefined for any other path. The
+// path goes under a fixed origin, so no encoding of it (/%61pi/…) can change the API's host.
+export function proxyTarget(request: Request) {
+  const url = new URL(request.url);
+  if (!url.pathname.startsWith("/api/")) return undefined;
+  const target = new URL(apiOrigin());
+  target.pathname = url.pathname.slice("/api".length);
+  target.search = new URLSearchParams(
+    Array.from(url.searchParams).filter(
+      ([name]) => !protectionControls.includes(name.toLowerCase()),
+    ),
+  ).toString();
+  const headers = new Headers(request.headers);
+  for (const name of ["host", "x-client-ip", ...protectionControls]) headers.delete(name);
+  for (const [name, value] of Object.entries(upstreamHeaders(request.headers))) {
+    headers.set(name, value);
+  }
+  return { url: target, headers };
+}
