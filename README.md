@@ -19,3 +19,5 @@ New apps are created from this template by `/app-setup`, the user-level skill in
 - [`AGENTS.md`](AGENTS.md): how to work here. Read it first.
 - [`docs/internals/api.md`](docs/internals/api.md): the contracts, the proxy, auth and pairing.
 - [`docs/internals/effect-services.md`](docs/internals/effect-services.md): Effect, database and auth rules.
+
+PRs labelled `coderabbit` get a CodeRabbit review; `/build` adds the label to important, high-stakes or bigger PRs.
