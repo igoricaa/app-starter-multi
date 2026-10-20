@@ -30,17 +30,21 @@ const json = (body: object, headers: Record<string, string> = {}) => ({
   body: JSON.stringify(body),
 });
 
-// A mobile client's sign-in: no cookies, the token from `set-auth-token`.
+// A mobile client's sign-in: no cookies, the signed token from `set-auth-token`. `rawToken` is the
+// unsigned one in the response body.
 const signInMobile = (email: string, headers: Record<string, string> = {}) =>
   Effect.gen(function* () {
     const request = yield* serve;
     const otp = yield* issueCode(email);
     const response = yield* request("/auth/sign-in/email-otp", json({ email, otp }, headers));
     assert.strictEqual(response.status, 200);
-    const { user } = (yield* body(response)) as { user: { id: string } };
+    const { user, token: rawToken } = (yield* body(response)) as {
+      user: { id: string };
+      token: string;
+    };
     const token = response.headers.get("set-auth-token");
     assert.isString(token);
-    return { id: user.id, auth: { authorization: `Bearer ${token}` } };
+    return { id: user.id, auth: { authorization: `Bearer ${token}` }, rawToken };
   });
 
 layer(app)("the API over HTTP", (it) => {
@@ -60,6 +64,17 @@ layer(app)("the API over HTTP", (it) => {
       const signedOut = yield* request(`/accounts/${dana.id}`);
       assert.strictEqual(signedOut.status, 401);
       assert.deepStrictEqual(yield* body(signedOut), { _tag: "Unauthenticated" });
+    }),
+  );
+
+  it.effect("a bearer token must be signed: the raw token from the response body is refused", () =>
+    Effect.gen(function* () {
+      const request = yield* serve;
+      const ivy = yield* signInMobile("ivy@example.test");
+      const read = (authorization: string) =>
+        request(`/accounts/${ivy.id}`, { headers: { authorization } });
+      assert.strictEqual((yield* read(`Bearer ${ivy.rawToken}`)).status, 401);
+      assert.strictEqual((yield* read(ivy.auth.authorization)).status, 200);
     }),
   );
 

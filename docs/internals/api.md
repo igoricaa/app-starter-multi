@@ -10,7 +10,10 @@ The API is a Nitro app whose only code is its server entry, `apps/api/server.ts`
 
 ## The web app's two ways in
 
-- **Browser:** `/api/*` on the web's own origin (`apps/web/src/routes/api/$.ts`) forwards to the API's `/*`. The session cookie is set and sent for the web's origin only, so it is first-party. The proxy refuses cross-site browser requests, and drops the `set-auth-token` header so the token stays in the HttpOnly cookie.
+- **Browser:** `/api/*` on the web's own origin (`apps/web/src/routes/api/$.ts`) forwards to the API's `/*`. The session cookie is set and sent for the web's origin only, so it is first-party. The proxy refuses cross-site browser requests, and its `proxyTarget` (`apps/web/src/server/upstream.ts`):
+  - puts the path under the API's fixed origin, and answers 404 to a raw path that doesn't start with `/api/` (`/%61pi/…` reaches the route too);
+  - drops a client's `x-client-ip` and Vercel protection controls (`x-vercel-protection-bypass`, `x-vercel-set-bypass-cookie`, in headers or the query), so only the server's bypass reaches an API preview;
+  - drops the response's `set-auth-token` header, so browser scripts never see the signed token.
 - **SSR:** loaders call the API directly (`apps/web/src/lib/api.ts`), forwarding the visitor's cookie.
 
 Both send `x-client-ip` with `API_PROXY_SECRET`, a secret the two projects share. Better Auth limits sign-in attempts per IP; without it, every browser would share the web server's IP. The API believes the claim only with the secret, so a direct caller can't choose its IP.
@@ -18,7 +21,7 @@ Both send `x-client-ip` with `API_PROXY_SECRET`, a secret the two projects share
 ## Auth: cookies and bearer tokens
 
 - **Cookies (web).** Better Auth's `baseURL` is the API's own origin (`API_URL`, or `VERCEL_URL` on Vercel). Its cookies carry no `Domain`, so the browser keeps them for the web's origin. Browser requests through the proxy carry the web's `Origin`, which Better Auth trusts through `SITE_URL`.
-- **Bearer (mobile).** A sign-in answers with a `set-auth-token` header. The app stores it and sends `Authorization: Bearer <token>`; with no cookie, no origin check applies.
+- **Bearer (mobile).** A sign-in answers with a `set-auth-token` header. The app stores it and sends `Authorization: Bearer <token>`; with no cookie, no origin check applies. Only that signed token works (`bearer({ requireSignature: true })`): the raw `token` in Better Auth's JSON (sign-in, `get-session`, `list-sessions`) is readable by the web's scripts, so it is refused as a bearer.
 - **Session lifetime.** A session lasts 7 days and is extended, at most daily, only by `GET /auth/get-session`, the one endpoint that can send the refreshed cookie back. API endpoints read sessions without extending them. The web calls it on every navigation and passes its `Set-Cookie` on, during SSR as well as through the proxy. A mobile app calls it with its bearer token when it opens; the token stays the same.
 
 ## Pairing
@@ -26,7 +29,7 @@ Both send `x-client-ip` with `API_PROXY_SECRET`, a secret the two projects share
 - **Locally,** the web reads `API_URL` (`http://localhost:3001`).
 - **On Vercel,** `relatedProjects` in `apps/web/vercel.json` names the API project, and Vercel fills `VERCEL_RELATED_PROJECTS`, at build and at run time. A web preview talks to the API's branch URL for the same Git branch; production talks to the API's production domain. A missing entry is an error, never a fallback to production.
 - The API project must deploy every push: with "skip unaffected projects" on, a web-only change would have no API preview on its branch.
-- API previews stay behind Vercel's Deployment Protection: they hold seeded accounts with a known code. The web's server (the proxy and SSR) sends the API project's protection bypass, `API_BYPASS_SECRET` in the web's Preview env; a mobile build against a preview sends it too. Production's API is public, for mobile apps.
+- API previews stay behind Vercel's Deployment Protection (setup sets Standard Protection on both projects: previews protected, production domains public): they hold seeded accounts with a known code. The web's server (the proxy and SSR) sends the API project's protection bypass, `API_BYPASS_SECRET` in the web's Preview env; a mobile build against a preview sends it too. Production's API is public, for mobile apps.
 - CI's e2e runs on the web preview's `deployment_status`, after `<web preview>/api/health` (through the proxy, so through the pairing) reports the same commit.
 - Only the web project creates GitHub deployments. The API's would start a second, skipped `e2e` run for the same commit, and a PR shows the latest run's result. Vercel names the environment `Preview – <project>`; the workflow also checks that it ends in `-web`, so the projects are named `<app>-web` and `<app>-api`.
 

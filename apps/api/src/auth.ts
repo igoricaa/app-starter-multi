@@ -95,8 +95,9 @@ function makeAuth(db: NodePgDatabase, config: AuthConfig) {
     },
     plugins: [
       // Mobile clients: sign-in answers with a `set-auth-token` header, sent back as
-      // `Authorization: Bearer <token>`.
-      bearer(),
+      // `Authorization: Bearer <token>`. Only that signed token works: the raw one in response
+      // bodies is readable by the web's scripts.
+      bearer({ requireSignature: true }),
       emailOTP({
         // Previews copy a database branch, and a hash of a 6-digit code reverses instantly; this is
         // keyed by BETTER_AUTH_SECRET, which differs per environment.

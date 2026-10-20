@@ -19,7 +19,7 @@ jobs:
       group: e2e-${{ github.event.deployment.ref }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       BASE_URL: ${{ github.event.deployment_status.environment_url }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -30,7 +30,7 @@ jobs:
         env:
           SHA: ${{ github.event.deployment.sha }}
         run: |
-          for _ in $(seq 60); do
+          for _ in $(seq 180); do
             sha=$(curl -sf -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$BASE_URL/api/health" | jq -r .sha) || sha=
             [ "$sha" = "$SHA" ] && exit 0
             sleep 5

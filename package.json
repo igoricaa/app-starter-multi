@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --filter '@app/api' --filter '@app/web' dev",
-    "check": "oxfmt --check && oxlint --type-aware && knip && bun run typecheck && bun run --filter '@app/api' test",
+    "check": "oxfmt --check && oxlint --type-aware && knip && bun run typecheck && bun run --filter '*' test",
     "typecheck": "tsc --noEmit && bun run --filter '*' typecheck",
     "fmt": "oxfmt",
     "e2e": "playwright test",

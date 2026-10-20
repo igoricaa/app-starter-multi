@@ -37,4 +37,4 @@ jobs:
       - run: bunx oxlint --type-aware
       - run: bunx knip
       - run: bun run typecheck
-      - run: bun run --filter @app/api test
+      - run: bun run --filter '*' test
