@@ -8,13 +8,14 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --filter '@app/api' --filter '@app/web' dev",
-    "check": "oxfmt --check && oxlint --type-aware && knip && bun run typecheck && bun run --filter '*' test",
+    "check": "oxfmt --check && bunx --bun oxlint --type-aware && knip && bun run typecheck && bun run --filter '*' test",
     "typecheck": "tsc --noEmit && bun run --filter '*' typecheck",
     "fmt": "oxfmt",
     "e2e": "playwright test",
     "setup": "bun scripts/setup.ts"
   },
   "devDependencies": {
+    "@oxlint/plugins": "^1.90.0",
     "@playwright/test": "^1.64.1",
     "@shadcn/lint": "0.2.3",
     "@types/node": "^26.6.5",
