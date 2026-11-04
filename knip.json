@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
-    ".": { "entry": ["scripts/*.ts", "e2e.config.ts"] },
+    ".": { "entry": ["scripts/*.ts", "e2e.config.ts", "tests/*.e2e.ts"] },
     "apps/api": { "entry": ["scripts/*.ts"] },
     "apps/web": { "entry": ["src/components/ui/*.tsx", "src/lib/utils.ts"] },
     "packages/contracts": {}
