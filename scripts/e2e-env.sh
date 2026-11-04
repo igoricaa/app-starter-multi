@@ -12,7 +12,7 @@ bypass=
 if [[ $url != http://localhost* ]]; then
   token=$(jq -r .token "$HOME/Library/Application Support/com.vercel.cli/auth.json")
   project=$(jq -r '.projects[] | select(.directory == "apps/web") | .id' .vercel/repo.json)
-  team=$(jq -r .orgId .vercel/repo.json)
+  team=$(jq -r '.projects[] | select(.directory == "apps/web") | .orgId' .vercel/repo.json)
   bypass=$(curl -fsS "https://api.vercel.com/v9/projects/$project?teamId=$team" \
     -K <(printf 'header = "Authorization: Bearer %s"\n' "$token") \
     | jq -r '[.protectionBypass // {} | to_entries[] | select(.value.scope == "automation-bypass") | .key][0] // empty')
